@@ -1,0 +1,10 @@
+{
+  "name": "Arbeitszeit Terminal",
+  "short_name": "Arbeitszeit",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F5F7F5",
+  "theme_color": "#B8C5BE",
+  "lang": "de",
+  "icons": []
+}
