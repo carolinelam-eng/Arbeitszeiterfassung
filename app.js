@@ -1,4 +1,5 @@
 import { seed, getEmployees, getEmployee, saveEmployee, deleteEmployee, getEntries, saveEntry, deleteEntry, getSetting, setSetting } from './db.js';
+import { hashPin, verifyPin, isValidPin } from './security.js';
 import { TYPES, deriveStatus, availableActions, entriesByDay, calculateDay, formatMinutes, formatClock, formatDate, weekStart, escapeCsv, dayKey } from './time.js';
 
 const app = document.querySelector('#app');
@@ -120,10 +121,28 @@ async function admin() {
   await renderTimes(employees,entries);
 }
 
-function adminLogin() {
-  app.innerHTML=shell(`<section class="login-wrap"><div class="login-card"><div class="lock-circle">${icon('admin')}</div><p class="eyebrow">Admin</p><h1>PIN eingeben</h1><p>Der Adminbereich ist geschützt.</p><form id="pinForm"><input id="pin" class="pin-input" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="••••" autofocus><button class="primary-btn" type="submit">Entsperren</button><p id="pinError" class="form-error"></p></form><small>Standard-PIN bei der ersten Nutzung: 2468</small></div></section>`,{back:'#/',admin:false});
+async function adminLogin() {
+  const pinRecord = await getSetting('adminPinRecord');
+  if (!pinRecord) return adminPinSetup();
+  app.innerHTML=shell(`<section class="login-wrap"><div class="login-card"><div class="lock-circle">${icon('admin')}</div><p class="eyebrow">Admin</p><h1>PIN eingeben</h1><p>Der Adminbereich ist geschützt.</p><form id="pinForm"><input id="pin" class="pin-input" type="password" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="••••" autofocus><button class="primary-btn" type="submit">Entsperren</button><p id="pinError" class="form-error"></p></form></div></section>`,{back:'#/',admin:false});
   bindNav();
-  document.querySelector('#pinForm').onsubmit=async e=>{e.preventDefault(); const ok=document.querySelector('#pin').value===String(await getSetting('adminPin')); if(ok){adminUnlocked=true;admin();}else document.querySelector('#pinError').textContent='PIN ist nicht korrekt.';};
+  document.querySelector('#pinForm').onsubmit=async e=>{e.preventDefault(); const ok=await verifyPin(document.querySelector('#pin').value, pinRecord); if(ok){adminUnlocked=true;admin();}else document.querySelector('#pinError').textContent='PIN ist nicht korrekt.';};
+}
+
+function adminPinSetup() {
+  app.innerHTML=shell(`<section class="login-wrap"><div class="login-card"><div class="lock-circle">${icon('admin')}</div><p class="eyebrow">Ersteinrichtung</p><h1>Admin-PIN festlegen</h1><p>Lege einen persönlichen PIN für den Adminbereich fest. Es gibt keinen voreingestellten Standard-PIN.</p><form id="pinSetupForm"><input id="newPin" class="pin-input" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="4–12 Ziffern" autofocus><input id="confirmPin" class="pin-input" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="PIN wiederholen"><button class="primary-btn" type="submit">PIN speichern</button><p id="pinSetupError" class="form-error"></p></form><small>Der PIN wird nur als gesalzener Hash auf diesem Gerät gespeichert.</small></div></section>`,{back:'#/',admin:false});
+  bindNav();
+  document.querySelector('#pinSetupForm').onsubmit=async e=>{
+    e.preventDefault();
+    const pin=document.querySelector('#newPin').value;
+    const confirm=document.querySelector('#confirmPin').value;
+    const error=document.querySelector('#pinSetupError');
+    if(!isValidPin(pin)){error.textContent='Der PIN muss aus 4 bis 12 Ziffern bestehen.';return;}
+    if(pin!==confirm){error.textContent='Die beiden PINs stimmen nicht überein.';return;}
+    await setSetting('adminPinRecord', await hashPin(pin));
+    adminUnlocked=true;
+    admin();
+  };
 }
 
 async function switchAdminTab(tab, employees, entries) {
@@ -187,9 +206,23 @@ async function downloadCsv() {
 }
 
 async function renderSettings() {
-  const content=document.querySelector('#adminContent'); const reset=await getSetting('resetSeconds'), pin=await getSetting('adminPin');
-  content.innerHTML=`<section class="settings-card"><div><p class="eyebrow">Terminal</p><h2>Einstellungen</h2></div><form id="settingsForm" class="form-grid"><div class="field"><label>Admin-PIN</label><input id="settingsPin" type="password" inputmode="numeric" value="${escapeAttr(String(pin||''))}" required></div><div class="field"><label>Rücksprung nach Buchung</label><select id="resetSeconds">${[2,3,4,5,8,10].map(x=>`<option value="${x}" ${Number(reset)===x?'selected':''}>${x} Sekunden</option>`).join('')}</select></div><div class="full"><button class="primary-btn">Einstellungen speichern</button></div></form></section>`;
-  document.querySelector('#settingsForm').onsubmit=async e=>{e.preventDefault();await setSetting('adminPin',document.querySelector('#settingsPin').value);await setSetting('resetSeconds',Number(document.querySelector('#resetSeconds').value));toast('Einstellungen gespeichert.');};
+  const content=document.querySelector('#adminContent'); const reset=await getSetting('resetSeconds');
+  content.innerHTML=`<section class="settings-card"><div><p class="eyebrow">Terminal</p><h2>Einstellungen</h2></div><form id="settingsForm" class="form-grid"><div class="field"><label>Neuer Admin-PIN</label><input id="settingsPin" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="leer lassen = unverändert"></div><div class="field"><label>Neuen PIN wiederholen</label><input id="settingsPinConfirm" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" placeholder="PIN wiederholen"></div><div class="field"><label>Rücksprung nach Buchung</label><select id="resetSeconds">${[2,3,4,5,8,10].map(x=>`<option value="${x}" ${Number(reset)===x?'selected':''}>${x} Sekunden</option>`).join('')}</select></div><div class="full"><p id="settingsError" class="form-error"></p><button class="primary-btn">Einstellungen speichern</button></div></form></section>`;
+  document.querySelector('#settingsForm').onsubmit=async e=>{
+    e.preventDefault();
+    const pin=document.querySelector('#settingsPin').value;
+    const confirm=document.querySelector('#settingsPinConfirm').value;
+    const error=document.querySelector('#settingsError');
+    error.textContent='';
+    if(pin || confirm){
+      if(!isValidPin(pin)){error.textContent='Der neue PIN muss aus 4 bis 12 Ziffern bestehen.';return;}
+      if(pin!==confirm){error.textContent='Die beiden PINs stimmen nicht überein.';return;}
+      await setSetting('adminPinRecord', await hashPin(pin));
+    }
+    await setSetting('resetSeconds',Number(document.querySelector('#resetSeconds').value));
+    toast('Einstellungen gespeichert.');
+    await renderSettings();
+  };
 }
 
 function modal(html) { const el=document.createElement('div');el.className='modal-backdrop';el.innerHTML=`<div class="modal">${html}</div>`;document.body.appendChild(el);el.querySelectorAll('[data-close-modal]').forEach(b=>b.onclick=closeModal);el.addEventListener('click',e=>{if(e.target===el)closeModal()}); }

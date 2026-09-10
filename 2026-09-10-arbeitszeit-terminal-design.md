@@ -20,7 +20,7 @@ React + TypeScript + Vite. Lokale Persistenz über IndexedDB (Dexie). Keine Serv
 ## Datenmodell
 employees: id, name, dailyTargetMinutes, weeklyTargetMinutes, active, sortOrder
 entries: id, employeeId, type, timestamp, edited, editedAt
-settings: adminPin, resetSeconds, companyName
+settings: adminPinRecord (gesalzener PBKDF2-Hash), resetSeconds, companyName
 
 ## Design
 Salbei #B8C5BE, heller Hintergrund, weiße Karten, dunkle Schrift, große Touch-Ziele, abgerundete Karten.

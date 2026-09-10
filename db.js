@@ -55,7 +55,7 @@ export async function seed() {
       await saveEmployee({ id: crypto.randomUUID(), name: starters[i], dailyTargetMinutes: 0, weeklyTargetMinutes: 0, active: true, sortOrder: i });
     }
   }
-  if ((await getSetting('adminPin')) == null) await setSetting('adminPin', '2468');
+  if ((await getSetting('adminPin')) != null) await deleteSetting('adminPin');
   if ((await getSetting('resetSeconds')) == null) await setSetting('resetSeconds', 3);
   if ((await getSetting('companyName')) == null) await setSetting('companyName', 'Arbeitszeit Terminal');
 }
@@ -103,4 +103,9 @@ export async function getSetting(key) {
 export async function setSetting(key, value) {
   const db = await openDb();
   return reqPromise(db.transaction('settings','readwrite').objectStore('settings').put({ key, value }));
+}
+
+export async function deleteSetting(key) {
+  const db = await openDb();
+  return reqPromise(db.transaction('settings','readwrite').objectStore('settings').delete(key));
 }

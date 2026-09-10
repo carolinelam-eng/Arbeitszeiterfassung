@@ -14,8 +14,9 @@ Eigenständige PWA für ein zentrales Arbeitszeit-Terminal. Die App speichert al
 
 - Voreingestellte Mitarbeiter: Mareike, Dani, Doriane, Valeriia.
 - Sollzeiten sind absichtlich noch nicht festgelegt und können im Adminbereich gepflegt werden.
-- Standard-Admin-PIN: `2468`.
-- Den PIN direkt unter **Admin → Einstellungen** ändern.
+- Beim ersten Öffnen des Adminbereichs legst du selbst einen Admin-PIN mit 4–12 Ziffern fest.
+- Es gibt keinen voreingestellten Standard-PIN; der PIN wird nicht im Klartext gespeichert.
+- Den PIN kannst du später unter **Admin → Einstellungen** ändern.
 
 ## Funktionen
 
